@@ -425,16 +425,51 @@ do
   -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
   vim.pack.add { gh 'folke/tokyonight.nvim' }
   ---@diagnostic disable-next-line: missing-fields
+  -- Use true (24-bit) colours when the terminal supports them.
+  -- macOS Terminal.app does NOT support true colour: hex colours get mangled into
+  -- harsh pink/magenta there, so we fall back to a 256-colour-safe scheme.
+  local truecolor = vim.env.TERM_PROGRAM ~= 'Apple_Terminal'
+  vim.o.termguicolors = truecolor
+  vim.o.background = 'dark'
+
   require('tokyonight').setup {
+    style = 'storm', -- slightly lighter background than 'night', easier on the eyes
     styles = {
       comments = { italic = false }, -- Disable italics in comments
+      keywords = { italic = false },
     },
+    -- Tone down the pink / magenta groups so text stays readable on a dark background
+    on_colors = function(c)
+      c.magenta2 = c.orange -- hot pink (#ff007c) -> soft orange
+      c.comment = '#8a93b8' -- brighter comments
+      c.fg_gutter = '#5a6184' -- more visible line numbers
+    end,
+    on_highlights = function(hl, c)
+      local soft = '#7dcfff' -- light cyan
+      hl.Keyword = { fg = soft }
+      hl['@keyword'] = { fg = soft }
+      hl['@keyword.function'] = { fg = soft }
+      hl['@keyword.return'] = { fg = soft }
+      hl['@keyword.conditional'] = { fg = soft }
+      hl['@keyword.repeat'] = { fg = soft }
+      hl['@keyword.import'] = { fg = soft }
+      hl.Statement = { fg = soft }
+      hl.Conditional = { fg = soft }
+      hl.Repeat = { fg = soft }
+      hl.Include = { fg = soft }
+      hl['@variable.builtin'] = { fg = c.yellow }
+      hl['@tag.delimiter'] = { fg = c.fg_dark }
+      hl.LineNr = { fg = c.fg_gutter }
+    end,
   }
 
   -- Load the colorscheme here.
-  -- Like many other themes, this one has different styles, and you could load
-  -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-  vim.cmd.colorscheme 'tokyonight-night'
+  -- Other styles: 'tokyonight-night', 'tokyonight-moon', or 'tokyonight-day'.
+  if truecolor then
+    vim.cmd.colorscheme 'tokyonight-storm'
+  else
+    vim.cmd.colorscheme 'habamax' -- built-in, works well with 256 colours
+  end
 
   -- Highlight todo, notes, etc in comments
   vim.pack.add { gh 'folke/todo-comments.nvim' }
@@ -948,7 +983,7 @@ do
   vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 
   -- Ensure basic parsers are installed
-  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+  local parsers = { 'bash', 'c', 'cpp', 'cmake', 'make', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
   require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
@@ -1018,7 +1053,13 @@ do
   -- require 'kickstart.plugins.indent_line'
   -- require 'kickstart.plugins.lint'
   -- require 'kickstart.plugins.autopairs'
-  -- require 'kickstart.plugins.neo-tree'
+  -- File tree: press \ (backslash) to toggle.
+  -- Wrapped in pcall so a failed download (e.g. no internet) doesn't break startup.
+  local ok, err = pcall(require, 'kickstart.plugins.neo-tree')
+  if not ok then
+    vim.notify('neo-tree not loaded (download failed?). Using built-in :Lexplore for \\ instead.\n' .. tostring(err), vim.log.levels.WARN)
+    vim.keymap.set('n', '\\', '<Cmd>Lexplore<CR>', { desc = 'File tree (netrw)', silent = true })
+  end
 
   -- NOTE: You can add your own plugins, configuration, etc. in `lua/custom/plugins/*.lua`.
   --
